@@ -50,6 +50,5 @@
     <orderEntry type="library" exported="" scope="TEST" name="commons-codec-1.9" level="project" />
     <orderEntry type="library" exported="" scope="TEST" name="json-smart-1.1.1" level="project" />
     <orderEntry type="library" exported="" scope="TEST" name="commons-lang-2.6" level="project" />
-    <orderEntry type="library" exported="" name="checkoutkit.checkoutkit" level="project" />
   </component>
 </module>

@@ -1,29 +1,18 @@
 package com.checkout;
 
-import android.app.DatePickerDialog;
-import android.app.Dialog;
-import android.app.DialogFragment;
-import android.app.TimePickerDialog;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.os.AsyncTask;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.text.format.DateFormat;
-import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
+import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.Spinner;
-import android.widget.TextView;
-import android.os.Environment;
-import android.widget.TimePicker;
-
+import com.checkout.CardValidator;
+import com.checkout.CheckoutKit;
 import com.checkout.exceptions.CardException;
 import com.checkout.exceptions.CheckoutException;
 import com.checkout.httpconnector.Response;
@@ -31,64 +20,74 @@ import com.checkout.models.Card;
 import com.checkout.models.CardToken;
 import com.checkout.models.CardTokenResponse;
 
-import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Locale;
 
+public class GetCardToken extends AppCompatActivity {
 
-public class GetCardToken extends ActionBarActivity {
-
-    private String publicKey = "pk_test_6ff46046-30af-41d9-bf58-929022d2cd14";
-
+    private static final String PUBLIC_KEY = "pk_test_6ff46046-30af-41d9-bf58-929022d2cd14";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_get_card_token);
+        setContentView(R.layout.get_token_layout);
 
-        Spinner spinnerM = (Spinner) findViewById(R.id.spinnerMonth);
-        Spinner spinnerY = (Spinner) findViewById(R.id.spinnerYear);
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
-                R.array.months, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerM.setAdapter(adapter);
+        //Make application fullscreen
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        ArrayAdapter<CharSequence> adapter2 = ArrayAdapter.createFromResource(this,
-                R.array.years, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerY.setAdapter(adapter2);
-    }
+        final EditText mCardName = (EditText) findViewById(R.id.cko_name);
+        final EditText mCard = (EditText) findViewById(R.id.cko_card);
+        final EditText mCvv = (EditText) findViewById(R.id.cko_cvv);
+        final Spinner mMonth = (Spinner) findViewById(R.id.cko_month);
+        final Spinner mYear = (Spinner) findViewById(R.id.cko_year);
 
-    public void getCardToken(View v) {
-        try {
-            new ConnectionTask().execute("");
-        } catch (Exception e) {
-            e.printStackTrace();
-            goToError();
-        }
+        final Button el_generateToken = (Button) findViewById(R.id.cko_generate_token);
+
+        //When the user clicks the Generate Token button
+        el_generateToken.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try {
+                    //Send card details to the ConnectionTask
+                    new ConnectionTask(mCardName.getText().toString(), mCard.getText().toString(),
+                            mMonth.getSelectedItem().toString(), mYear.getSelectedItem().toString(),
+                            mCvv.getText().toString()).execute();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    goToError();
+                }
+            }
+        });
+
     }
 
     private void goToError() {
-        Intent intent = new Intent(this, Fail_result.class);
+        Intent intent = new Intent(this, ErrorPage.class);
         startActivity(intent);
     }
 
-    private void goToSuccess() {
-        Intent intent = new Intent(this, Success_result.class);
+    private void goToSuccess(String cardToken) {
+        Intent intent = new Intent(this, SuccessPage.class);
+        intent.putExtra("cardToken", cardToken);
         startActivity(intent);
     }
-
 
     class ConnectionTask extends AsyncTask<String, Void, String> {
 
-        final EditText name = (EditText) findViewById(R.id.name);
-        final EditText numberField = (EditText) findViewById(R.id.number);
-        final EditText cvvField = (EditText) findViewById(R.id.cvv);
-        final Spinner spinMonth = (Spinner) findViewById(R.id.spinnerMonth);
-        final Spinner spinYear = (Spinner) findViewById(R.id.spinnerYear);
-        final int errorColor = Color.rgb(204, 0, 51);
+        private String nameValue, numberValue, monthValue, yearValue, cvvValue;
+
+        public ConnectionTask(String name, String number, String month, String year, String cvv) {
+            this.nameValue = name;
+            this.numberValue = number;
+            this.monthValue = month;
+            this.yearValue = year;
+            this.cvvValue = cvv;
+        }
+
+        final EditText numberField = (EditText) findViewById(R.id.cko_card);
+        final EditText cvvField = (EditText) findViewById(R.id.cko_cvv);
+        final Spinner spinMonth = (Spinner) findViewById(R.id.cko_month);
+        final Spinner spinYear = (Spinner) findViewById(R.id.cko_year);
+        final int errorColor = Color.rgb(231, 76, 60);
 
         private boolean validateCardFields(final String number, final String month, final String year, final String cvv) {
             boolean error = false;
@@ -140,11 +139,11 @@ public class GetCardToken extends ActionBarActivity {
         @Override
         protected String doInBackground(String... urls) {
 
-            if (validateCardFields(numberField.getText().toString(), spinMonth.getSelectedItem().toString(), spinYear.getSelectedItem().toString(), cvvField.getText().toString())) {
+            if (validateCardFields(numberValue, monthValue, yearValue, cvvValue)) {
                 clearFieldsError();
                 try {
-                    Card card = new Card(numberField.getText().toString(), name.getText().toString(), spinMonth.getSelectedItem().toString(), spinYear.getSelectedItem().toString(), cvvField.getText().toString());
-                    CheckoutKit ck = CheckoutKit.getInstance(publicKey);
+                    Card card = new Card(numberValue, nameValue, monthValue, yearValue, cvvValue);
+                    CheckoutKit ck = CheckoutKit.getInstance(PUBLIC_KEY);
                     final Response<CardTokenResponse> resp = ck.createCardToken(card);
                     if (resp.hasError) {
                         runOnUiThread(new Runnable() {
@@ -155,7 +154,8 @@ public class GetCardToken extends ActionBarActivity {
                         });
                     } else {
                         CardToken ct = resp.model.getCard();
-                        goToSuccess();
+
+                        goToSuccess(resp.model.getCardToken());
                         return resp.model.getCardToken();
                     }
                 } catch (final CardException e) {
@@ -185,4 +185,5 @@ public class GetCardToken extends ActionBarActivity {
         }
 
     }
+
 }
